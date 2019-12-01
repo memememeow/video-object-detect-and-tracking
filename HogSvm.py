@@ -32,7 +32,7 @@ def computeHOGs(img_lst, wsize=(128, 64)):
             gradientList.append(hog.compute(gray))
         else:
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            gray = np.power(gray, 1/1.5).astype(np.uint8)
+            gray = (np.power(gray/float(np.max(gray)), 1/1.5) * 255).astype(np.uint8)
             gradientList.append(hog.compute(gray))
     return gradientList
     

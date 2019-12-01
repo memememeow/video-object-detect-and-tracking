@@ -72,8 +72,8 @@ def predict(img, modelPath, merge=False):
     locations = []
     for (x, y, H, W) in rects:
         locations.append([x, y, x+H, y+W])
-    newRects = nmsFilter(locations, 0.3)
-    # newRects = locations
+    # newRects = nmsFilter(locations, 0.3)
+    newRects = locations
     if merge:
         return mergeRects(newRects)
     else:
@@ -102,6 +102,6 @@ if __name__ == "__main__":
     dirPath = parameters[1]
     modelPath = parameters[2]
     number = int(parameters[3])
-    print(number)
-    merge = bool(parameters[4])
-    test(dirPath, modelPath, number, merge=True)
+    # print(number)
+    merge = int(parameters[4]) == 1
+    test(dirPath, modelPath, number, merge)
