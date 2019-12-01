@@ -3,6 +3,11 @@ import numpy as np
 import os
 import sys
 
+ 
+hog = cv2.HOGDescriptor()
+hog.load('myHogDector.bin')
+
+
 def intersection(rect1, rect2):
     intersectLeftX = max(rect1[0], rect2[0])
     intersectLeftY = max(rect1[1], rect2[1])
@@ -13,6 +18,7 @@ def intersection(rect1, rect2):
                     * max(0, intersectRightY - intersectLeftY + 1)
     
     return intersectArea
+
 
 def nmsFilter(rectangles, threshold):
     print("Number of rectangles:", len(rectangles))
@@ -61,6 +67,7 @@ def nmsFilter(rectangles, threshold):
 
     return rectangles[correct].tolist()
 
+
 def mergeRects(rectangles):
     if(rectangles == []):
         return []
@@ -83,6 +90,7 @@ def mergeRects(rectangles):
     # rightX = max(rectangles[:,2])
     # rightY = max(rectangles[:,3])
     return merged
+
 
 def predict(img, modelPath, merge=False):
     hog = cv2.HOGDescriptor()
@@ -128,6 +136,7 @@ def test(dirPath, modelPath, num, merge = False):
         cv2.imwrite("test_" + modelPath + "-" + str(i) + ".jpg", img)
         if(num == i):
             break
+
 
 if __name__ == "__main__":
     parameters = sys.argv

@@ -3,14 +3,16 @@ import scipy.linalg as sp
 import cv2 as cv
 import random
 import sys
+import test
 
 
-def find_sift_points_for_first_frame(query, x, y, w, h):
+def find_sift_points_for_first_frame(query, x1, y1, x2, y2):
     sift = cv.xfeatures2d.SIFT_create()
     mask = np.zeros(query.shape[:2], dtype=np.uint8)
-    cv.rectangle(mask, (x,y), (x+w, y+h), (255), thickness = -1)
+    cv.rectangle(mask, (x1,y1), (x2, y2), (255), thickness = -1)
     keypoints_1, descriptors_1 = sift.detectAndCompute(query, mask)
     return keypoints_1, descriptors_1
+
 
 def find_matches(keypoints_1, descriptors_1, img, ratio):
     sift = cv.xfeatures2d.SIFT_create()
@@ -112,14 +114,14 @@ def find_corner(affine, corners):
 
 if __name__ == '__main__':
     total_args = len(sys.argv)
-    video_path = "../starbucks/jimin_2.mp4"
-    output_path = "../result/jimin_output.m4v"
-    svm_path = ""
+    video_path = "./videos/jimin.mp4"
+    output_path = "./result/jimin_output.m4v"
+    model_path = "./myHogDector.bin"
 
     if total_args > 1:
         video_path = sys.argv[1]
         output_path = sys.argv[2]
-        # svm_folder = sys.argv[3]
+        model_path = sys.argv[3]
 
     min_matches_required = 10
 
@@ -150,13 +152,15 @@ if __name__ == '__main__':
     fourcc = cv.VideoWriter_fourcc('m','p','4','v')
     output = cv.VideoWriter(output_path, fourcc, 20.0, (width, height))
 
-    x = 0
-    y = 0
-    w = 0
-    h = 0
+    # x = 0
+    # y = 0
+    # w = 0
+    # h = 0
 
-    keypoints_1 = None
-    descriptors_1 = None
+    rects = []
+    corners = []
+    keypoints = []
+    descriptors = []
     # read first frame
     flag, first_frame = cap.read()
     corners = []
@@ -169,14 +173,29 @@ if __name__ == '__main__':
         # h = 470
 
         # jimin
-        x = 560
-        y = 100
-        w = 150
-        h = 425
-        corners = np.array([[x, y, 1.], [x + w, y, 1.], [x, y + h, 1.], [x + w, y + h, 1.]])
-        # cv.rectangle(first_frame, (x, y), (x + w, y + h), (255, 255, 0), 3)
+        # x = 560
+        # y = 100
+        # w = 150
+        # h = 425
+
+        # use trained svm model to detect object from the first frame
+        rects = [(560, 100, 710, 525), (200, 50, 300, 80)]
+        # rects = test.predict(model_path, first_frame)
+        if len(rects) == 0:
+            cap.release()
+            cv.destroyAllWindows()
+            output.release()
+            print("Error: no object detected from the first frame.")
+            sys.exit(1)
+
+        for (x1, y1, x2, y2) in rects:
+            corners.append(np.array([[x1, y1, 1.], [x2, y1, 1.], [x1, y2, 1.], [x2, y2, 1.]]))
+            cv.rectangle(first_frame, (x1, y1), (x2, y2), (255, 255, 0), 3)
+            keypoints_1, descriptors_1 = find_sift_points_for_first_frame(first_frame, x1, y1, x2, y2)
+            keypoints.append(keypoints_1)
+            descriptors.append(descriptors_1)
+
         cv.imwrite("../starbucks/first_frame.jpg", first_frame)
-        keypoints_1, descriptors_1 = find_sift_points_for_first_frame(first_frame, x, y, w, h)
         # write the first frame
         output.write(first_frame)
     else:
@@ -216,24 +235,25 @@ if __name__ == '__main__':
         if flag:
             print(cap.get(cv.CAP_PROP_POS_FRAMES))
 
-            keypoints_1, keypoints_2, good_matches = find_matches(keypoints_1, descriptors_1, frame, 0.50)
-            if len(good_matches) < min_matches_required:
-                print("Error: No enough matches")
-                continue
+            for i in range(len(rects)):
+                print("rectangle: {}".format(i))
+                keypoints_1, keypoints_2, good_matches = find_matches(keypoints[i], descriptors[i], frame, 0.50)
+                if len(good_matches) < min_matches_required:
+                    print("Error: No enough matches")
+                    continue
 
-            src_pts = np.array([np.round(keypoints_1[m.queryIdx].pt) for m in good_matches])
-            dst_pts = np.array([np.round(keypoints_2[m.trainIdx].pt) for m in good_matches])
+                src_pts = np.array([np.round(keypoints_1[m.queryIdx].pt) for m in good_matches])
+                dst_pts = np.array([np.round(keypoints_2[m.trainIdx].pt) for m in good_matches])
 
-            max_iter, t_inliers, model, inliers = ransac_affine(src_pts, dst_pts, 1000)
+                max_iter, t_inliers, model, inliers = ransac_affine(src_pts, dst_pts, 1000)
 
-            new_corners = find_corner(model, corners)
+                new_corners = find_corner(model, corners[i])
 
-            cv.line(frame, tuple(new_corners[0]), tuple(new_corners[1]), (255, 255, 0), 3)
-            cv.line(frame, tuple(new_corners[0]), tuple(new_corners[2]), (255, 255, 0), 3)
-            cv.line(frame, tuple(new_corners[1]), tuple(new_corners[3]), (255, 255, 0), 3)
-            cv.line(frame, tuple(new_corners[2]), tuple(new_corners[3]), (255, 255, 0), 3)
+                cv.line(frame, tuple(new_corners[0]), tuple(new_corners[1]), (255, 255, 0), 3)
+                cv.line(frame, tuple(new_corners[0]), tuple(new_corners[2]), (255, 255, 0), 3)
+                cv.line(frame, tuple(new_corners[1]), tuple(new_corners[3]), (255, 255, 0), 3)
+                cv.line(frame, tuple(new_corners[2]), tuple(new_corners[3]), (255, 255, 0), 3)
 
-            # The frame is ready and already captured
             key = cv.waitKey(33) & 0xFF
             output.write(frame)
 
