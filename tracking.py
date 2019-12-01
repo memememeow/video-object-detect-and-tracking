@@ -211,46 +211,45 @@ if __name__ == '__main__':
 
     # loop over following frames for each frame compute affine transformation
     # and draw rectangle
-    # while True:
-    #     flag, frame = cap.read()
-    #     if flag:
-    #         print(cap.get(cv.CAP_PROP_POS_FRAMES))
-    #
-    #         keypoints_1, keypoints_2, good_matches = find_matches(keypoints_1, descriptors_1, frame, 0.50)
-    #         if len(good_matches) < min_matches_required:
-    #             print("Error: No enough matches")
-    #             continue
-    #
-    #         src_pts = np.array([np.round(keypoints_1[m.queryIdx].pt) for m in good_matches])
-    #         dst_pts = np.array([np.round(keypoints_2[m.trainIdx].pt) for m in good_matches])
-    #
-    #         max_iter, t_inliers, model, inliers = ransac_affine(src_pts, dst_pts, 1000)
-    #
-    #         # new_frame = frame.copy()
-    #         new_corners = find_corner(model, corners)
-    #
-    #         cv.line(frame, tuple(new_corners[0]), tuple(new_corners[1]), (255, 255, 0), 3)
-    #         cv.line(frame, tuple(new_corners[0]), tuple(new_corners[2]), (255, 255, 0), 3)
-    #         cv.line(frame, tuple(new_corners[1]), tuple(new_corners[3]), (255, 255, 0), 3)
-    #         cv.line(frame, tuple(new_corners[2]), tuple(new_corners[3]), (255, 255, 0), 3)
-    #
-    #         # The frame is ready and already captured
-    #         key = cv.waitKey(33) & 0xFF
-    #         output.write(frame)
-    #
-    #     else:
-    #         # The next frame is not ready, so we try to read it again
-    #         cap.set(cv.CAP_PROP_POS_FRAMES, pos_frame - 1)
-    #         print("frame is not ready")
-    #         # It is better to wait for a while for the next frame to be ready
-    #         cv.waitKey(1000)
-    #
-    #     if cv.waitKey(10) == 27:
-    #         break
-    #     if cap.get(cv.CAP_PROP_POS_FRAMES) == cap.get(cv.CAP_PROP_FRAME_COUNT):
-    #         # If the number of captured frames is equal to the total number of frames,
-    #         # we stop
-    #         break
+    while True:
+        flag, frame = cap.read()
+        if flag:
+            print(cap.get(cv.CAP_PROP_POS_FRAMES))
+
+            keypoints_1, keypoints_2, good_matches = find_matches(keypoints_1, descriptors_1, frame, 0.50)
+            if len(good_matches) < min_matches_required:
+                print("Error: No enough matches")
+                continue
+
+            src_pts = np.array([np.round(keypoints_1[m.queryIdx].pt) for m in good_matches])
+            dst_pts = np.array([np.round(keypoints_2[m.trainIdx].pt) for m in good_matches])
+
+            max_iter, t_inliers, model, inliers = ransac_affine(src_pts, dst_pts, 1000)
+
+            new_corners = find_corner(model, corners)
+
+            cv.line(frame, tuple(new_corners[0]), tuple(new_corners[1]), (255, 255, 0), 3)
+            cv.line(frame, tuple(new_corners[0]), tuple(new_corners[2]), (255, 255, 0), 3)
+            cv.line(frame, tuple(new_corners[1]), tuple(new_corners[3]), (255, 255, 0), 3)
+            cv.line(frame, tuple(new_corners[2]), tuple(new_corners[3]), (255, 255, 0), 3)
+
+            # The frame is ready and already captured
+            key = cv.waitKey(33) & 0xFF
+            output.write(frame)
+
+        else:
+            # The next frame is not ready, so we try to read it again
+            cap.set(cv.CAP_PROP_POS_FRAMES, pos_frame - 1)
+            print("frame is not ready")
+            # It is better to wait for a while for the next frame to be ready
+            cv.waitKey(1000)
+
+        if cv.waitKey(10) == 27:
+            break
+        if cap.get(cv.CAP_PROP_POS_FRAMES) == cap.get(cv.CAP_PROP_FRAME_COUNT):
+            # If the number of captured frames is equal to the total number of frames,
+            # we stop
+            break
 
     # When everything done, release the capture
     cap.release()
