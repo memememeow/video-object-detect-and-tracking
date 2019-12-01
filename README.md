@@ -11,6 +11,7 @@ py -3 HogSvm.py positive-images-folder-path negative-images-folder-path model-na
 ```
 
 To test trained model with images:
+(merge flag should be set to 0 for no merge and 1 for merge)
 ```
 py -3 test.py test-image-folder-path model-path number-of-test-images merge-flag
 ```
