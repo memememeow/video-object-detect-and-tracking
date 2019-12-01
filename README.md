@@ -7,12 +7,12 @@ We use HOG and SVM to do the object detection. And compute SIFT descriptors and 
 Before testing or tracking, please provide both positve and negative train dara set ot train a model.
 To train the model:
 ```
-py -3 HogSvm.py positive-images-path negative-images-path model-name
+py -3 HogSvm.py positive-images-folder-path negative-images-folder-path model-name
 ```
 
-To test trained model:
+To test trained model with images:
 ```
-py -3 test.py test-image-path model-path number-of-test-images merge-flag
+py -3 test.py test-image-folder-path model-path number-of-test-images merge-flag
 ```
 
 To do detection and tracking inside the video:
