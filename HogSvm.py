@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import random
 import os
+import sys
  
 def load_images(dirPath, num = 30):
     img_list = []
@@ -43,67 +44,72 @@ def get_svm_detector(svm):
     sv = np.transpose(sv)
     return np.append(sv, [[-rho]], 0)
  
- 
-neg_list = []
-pos_list = []
 
-gradient_lst = []
-labels = []
-hard_neg_list = []
+if __name__ == "__main__":
+    posPath = sys.argv[1]
+    negPath = sys.argv[2]
+    modelPath = sys.argv[3]
 
-# for now, pos-50 and neg-110 have the best performance
-pos_list = load_images("pos_person", num = 100)
-neg_list = load_images("neg_person", num = 200)
-# sample_neg(full_neg_lst, neg_list, [128, 64])
+    neg_list = []
+    pos_list = []
 
-print("The number of positive examples:", len(pos_list))
-print("The number of negative examples:", len(neg_list))
+    gradient_lst = []
+    labels = []
+    hard_neg_list = []
 
-computeHOGs(pos_list, gradient_lst)
-computeHOGs(neg_list, gradient_lst)
-print("Size of gradient list", len(gradient_lst))
-labels = [1 for _ in range(len(pos_list))] + [-1 for _ in range(len(neg_list))]
- 
-# train svm on positive examples
-svm = cv2.ml.SVM_create()
-svm.setCoef0(0)
-svm.setCoef0(0.0)
-svm.setDegree(3)
-criteria = (cv2.TERM_CRITERIA_MAX_ITER + cv2.TERM_CRITERIA_EPS, 1000, 1e-3)
-svm.setTermCriteria(criteria)
-svm.setGamma(0)
-svm.setKernel(cv2.ml.SVM_LINEAR)
-svm.setNu(0.5)
-svm.setP(0.1)  # for EPSILON_SVR, epsilon in loss function?
-svm.setC(0.01)  # From paper, soft classifier
-svm.setType(cv2.ml.SVM_EPS_SVR)  # C_SVC # EPSILON_SVR # may be also NU_SVR # do regression task
-svm.train(np.array(gradient_lst), cv2.ml.ROW_SAMPLE, np.array(labels))
-print("Finished first round of training")
- 
-# train svm on negative examples which cause poor performance
-hog = cv2.HOGDescriptor()
-hard_neg_list.clear()
-hog.setSVMDetector(get_svm_detector(svm))
-for i in range(len(neg_list)):
-    rects, wei = hog.detectMultiScale(neg_list[i], winStride=(4, 4),padding=(8, 8), scale=1.05)
-    for (x,y,w,h) in rects:
-        print(x, y, w, h)
-        hardExample = neg_list[i][y:y+h, x:x+w]
-        hard_neg_list.append(cv2.resize(hardExample,(64, 128)))
-print("Size of hard_neg_list:", len(hard_neg_list))
-computeHOGs(hard_neg_list, gradient_lst)
+    # for now, pos-50 and neg-110 have the best performance
+    pos_list = load_images(posPath, num = 100)
+    neg_list = load_images(negPath, num = 200)
+    # sample_neg(full_neg_lst, neg_list, [128, 64])
 
-for i in range(len(hard_neg_list)):
-    labels.append(-1)
+    print("The number of positive examples:", len(pos_list))
+    print("The number of negative examples:", len(neg_list))
 
-print("Number of labels", len(labels))
-svm.train(np.array(gradient_lst), cv2.ml.ROW_SAMPLE, np.array(labels))
-print("Finished second round of training")
- 
- 
-# save svm+hog model
-hog.setSVMDetector(get_svm_detector(svm))
-hog.save('myHogDector.bin')
-print("Saved!")
+    computeHOGs(pos_list, gradient_lst)
+    computeHOGs(neg_list, gradient_lst)
+    # print("Size of gradient list", len(gradient_lst))
+    labels = [1 for _ in range(len(pos_list))] + [-1 for _ in range(len(neg_list))]
+    
+    # train svm on positive examples
+    svm = cv2.ml.SVM_create()
+    svm.setCoef0(0)
+    svm.setCoef0(0.0)
+    svm.setDegree(3)
+    criteria = (cv2.TERM_CRITERIA_MAX_ITER + cv2.TERM_CRITERIA_EPS, 1000, 1e-3)
+    svm.setTermCriteria(criteria)
+    svm.setGamma(0)
+    svm.setKernel(cv2.ml.SVM_LINEAR)
+    svm.setNu(0.5)
+    svm.setP(0.1)  # for EPSILON_SVR, epsilon in loss function?
+    svm.setC(0.01)  # From paper, soft classifier
+    svm.setType(cv2.ml.SVM_EPS_SVR)  # C_SVC # EPSILON_SVR # may be also NU_SVR # do regression task
+    svm.train(np.array(gradient_lst), cv2.ml.ROW_SAMPLE, np.array(labels))
+    print("Finished first round of training")
+    
+    # train svm on negative examples which cause poor performance
+    hog = cv2.HOGDescriptor()
+    hard_neg_list.clear()
+    hog.setSVMDetector(get_svm_detector(svm))
+    for i in range(len(neg_list)):
+        rects, wei = hog.detectMultiScale(neg_list[i], winStride=(4, 4),padding=(8, 8), scale=1.05)
+        for (x,y,w,h) in rects:
+            print(x, y, w, h)
+            hardExample = neg_list[i][y:y+h, x:x+w]
+            hard_neg_list.append(cv2.resize(hardExample,(64, 128)))
+    print("Size of hard_neg_list:", len(hard_neg_list))
+    computeHOGs(hard_neg_list, gradient_lst)
+
+    for i in range(len(hard_neg_list)):
+        labels.append(-1)
+
+    # print("Number of labels", len(labels))
+    svm.train(np.array(gradient_lst), cv2.ml.ROW_SAMPLE, np.array(labels))
+    print("Finished second round of training")
+    
+    
+    # save svm+hog model
+    hog.setSVMDetector(get_svm_detector(svm))
+    hog.save(modelPath)
+    print("Saved!")
  
 

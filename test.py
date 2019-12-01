@@ -1,19 +1,7 @@
 import cv2
 import numpy as np
 import os
- 
-hog = cv2.HOGDescriptor()
-hog.load('myHogDector.bin')
-# cap = cv2.VideoCapture(0)
-# while True:
-#     ok, img = cap.read()
-#     rects, wei = hog.detectMultiScale(img, winStride=(4, 4),padding=(8, 8), scale=1.05)
-#     for (x, y, w, h) in rects:
-#         cv2.rectangle(img, (x, y), (x + w, y + h), (0, 0, 255), 2)
-#     cv2.imshow('a', img)
-#     if cv2.waitKey(1)&0xff == 27:    # esc键
-#         break
-# cv2.destroyAllWindows()
+import sys
 
 def intersection(rect1, rect2):
     intersectLeftX = max(rect1[0], rect2[0])
@@ -73,8 +61,6 @@ def nmsFilter(rectangles, threshold):
 
     return rectangles[correct].tolist()
 
-
-
 def mergeRects(rectangles):
     if(rectangles == []):
         return []
@@ -89,7 +75,7 @@ def mergeRects(rectangles):
                 newRect = [min(m[0], rect[0]), min(m[1], rect[1]), max(m[2], rect[2]), max(m[3], rect[3])]
                 merged[i] = newRect
                 found = True
-                break
+                # break
         if not found:
             merged.append(rect)
     # leftX = min(rectangles[:,0])
@@ -98,32 +84,56 @@ def mergeRects(rectangles):
     # rightY = max(rectangles[:,3])
     return merged
 
-def test(dirPath, num, merge = False):
+def predict(img, modelPath, merge=False):
+    hog = cv2.HOGDescriptor()
+    hog.load(modelPath)
+    rects, wei = hog.detectMultiScale(img, winStride = (4, 4), padding = (8, 8), scale=1.05)
+    # print(rects)
+    locations = []
+    for (x, y, H, W) in rects:
+        locations.append([x, y, x+H, y+W])
+    newRects = nmsFilter(locations, 0.3)
+    # newRects = locations
+    if merge:
+        return mergeRects(newRects)
+    else:
+        return newRects
+
+
+def test(dirPath, modelPath, num, merge = False):
     files = os.listdir(dirPath)
+    num = min(len(files), num)
+    i = 0
     for f in files:
-        img = cv2.imread("test_image/" + f)
-        rects, wei = hog.detectMultiScale(img, winStride = (4, 4), padding = (8, 8), scale=1.05)
-        # print(rects)
-        locations = []
-        for (x, y, H, W) in rects:
-            locations.append([x, y, x+H, y+W])
-        newRects = nmsFilter(locations, 0.3)
-        # newRects = locations
-        merged = mergeRects(newRects)
-        if merge:
-            for (x1, y1, x2, y2) in merged:
-                cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-        else:
-            for (x1, y1, x2, y2) in newRects:
-                cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-        cv2.imshow("test", img)
+        img = cv2.imread(dirPath + f)
+        # rects, wei = hog.detectMultiScale(img, winStride = (4, 4), padding = (8, 8), scale=1.05)
+        # # print(rects)
+        # locations = []
+        # for (x, y, H, W) in rects:
+        #     locations.append([x, y, x+H, y+W])
+        # newRects = nmsFilter(locations, 0.3)
+        # # newRects = locations
+        # merged = mergeRects(newRects)
+        rects = predict(img, modelPath, merge)
+        # if merge:
+        #     for (x1, y1, x2, y2) in merged:
+        #         cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        # else:
+        for (x1, y1, x2, y2) in rects:
+            cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        i += 1
+        cv2.imshow("test_" + str(i), img)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
-        num -= 1
-        if(num == 0):
+        cv2.imwrite("test_" + modelPath + "-" + str(i) + ".jpg", img)
+        if(num == i):
             break
 
 if __name__ == "__main__":
-    dirPath = "test_image"
-    number = 10
-    test(dirPath, number, merge=True)
+    parameters = sys.argv
+    dirPath = parameters[1]
+    modelPath = parameters[2]
+    number = int(parameters[3])
+    print(number)
+    merge = bool(parameters[4])
+    test(dirPath, modelPath, number, merge=True)
