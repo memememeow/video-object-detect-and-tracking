@@ -114,9 +114,9 @@ def find_corner(affine, corners):
 
 if __name__ == '__main__':
     total_args = len(sys.argv)
-    video_path = "./videos/jimin.mp4"
-    output_path = "./result/jimin_output.m4v"
-    model_path = "./myHogDector.bin"
+    video_path = "./videos_kevin/kevin_stairs_1.mp4"
+    output_path = "./result/kevin_stairs_1_output_model_2_no_merge.m4v"
+    model_path = "best-model-2.bin"
 
     if total_args > 1:
         video_path = sys.argv[1]
@@ -152,10 +152,6 @@ if __name__ == '__main__':
     fourcc = cv.VideoWriter_fourcc('m','p','4','v')
     output = cv.VideoWriter(output_path, fourcc, 20.0, (width, height))
 
-    # x = 0
-    # y = 0
-    # w = 0
-    # h = 0
 
     rects = []
     corners = []
@@ -167,20 +163,22 @@ if __name__ == '__main__':
     if flag:
         print("first frame")
         # cat folder
-        # x = 460
-        # y = 80
-        # w = 340
-        # h = 470
+        # rects = [(460, 80, 800, 550)]
 
         # jimin
-        # x = 560
-        # y = 100
-        # w = 150
-        # h = 425
+        # rects = [(560, 100, 710, 525)]
+
+        # kevin face test 1
+        # rects = [(500, 180, 720, 450)]
+
+        # kevin stairs 1
+        # rects = [(600, 180, 680, 350)]
+
+        # kevin walk 2
+        # rects = [(980, 150, 1150, 700)]
 
         # use trained svm model to detect object from the first frame
-        rects = [(560, 100, 710, 525), (200, 50, 300, 80)]
-        # rects = test.predict(model_path, first_frame)
+        rects = test.predict(first_frame, model_path, merge=False)
         if len(rects) == 0:
             cap.release()
             cv.destroyAllWindows()
@@ -195,37 +193,13 @@ if __name__ == '__main__':
             keypoints.append(keypoints_1)
             descriptors.append(descriptors_1)
 
-        cv.imwrite("../starbucks/first_frame.jpg", first_frame)
+        cv.imwrite("./result/first_frame_model_2_no_merge.jpg", first_frame)
         # write the first frame
         output.write(first_frame)
     else:
         print("Error: could not read first frame.")
 
     print(cap.get(cv.CAP_PROP_POS_FRAMES))
-
-    # flag, sec_frame = cap.read()
-    # if flag:
-    #     print("sec frame")
-    #     # x = 460
-    #     # y = 80
-    #     # w = 340
-    #     # h = 470
-    #     # cv.rectangle(first_frame, (x, y), (x + w, y + h), (255, 255, 0), 3)
-    #     # cv.imwrite("../starbucks/first_frame.jpg", first_frame)
-    #     # keypoints_1, descriptors_1 = find_sift_points_for_first_frame(first_frame, x, y, w, h)
-    #     # # write the first frame
-    #     # output.write(first_frame)
-    #     keypoints_1, keypoints_2, good_matches = find_matches(keypoints_1, descriptors_1, sec_frame, 0.60)
-    #     print(len(good_matches))
-    #     matched_img = np.empty((max(first_frame.shape[0], sec_frame.shape[0]), first_frame.shape[1] + sec_frame.shape[1], 3),
-    #                            dtype=np.uint8)
-    #     cv.drawMatches(first_frame, keypoints_1, sec_frame, keypoints_2, good_matches, matched_img,
-    #                     flags=cv.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
-    #
-    #     cv.imwrite("../starbucks/matches.jpg", matched_img)
-    #
-    # else:
-    #     print("Error: could not read first frame.")
 
 
     # loop over following frames for each frame compute affine transformation
