@@ -4,25 +4,22 @@ import random
 import os
 import sys
  
-def load_images(dirPath, num = 30):
-    img_list = []
+def loadImages(dirPath, num = 30):
+    imges = []
     # dirname is path to the direcotry where images are stored
     files = os.listdir(dirPath)
-    print(dirPath)
-    print("files:", len(files))
     for f in files:
         img_name = dirPath + "/" + f
-        # print(img_name)
-        img_list.append(cv2.imread(img_name))
+        imges.append(cv2.imread(img_name))
         num -= 1
         # if amount limit has been reached, we stop and ignore how many images are left
         if num <= 0:
             break
-    # print(len(img_list))
-    return img_list
+    return imges
  
 
-def computeHOGs(img_lst, gradient_lst, wsize=(128, 64)):
+def computeHOGs(img_lst, wsize=(128, 64)):
+    gradientList = []
     hog = cv2.HOGDescriptor()
     print(len(img_lst))
     for img in img_lst:
@@ -30,47 +27,14 @@ def computeHOGs(img_lst, gradient_lst, wsize=(128, 64)):
             H, W = img.shape[:2]
             roi = img[(H - wsize[0]) // 2: (H - wsize[0]) // 2 + wsize[0], (W - wsize[1]) // 2: (W - wsize[1]) // 2 + wsize[1]]
             gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-            gradient_lst.append(hog.compute(gray))
+            gradientList.append(hog.compute(gray))
         else:
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            gradient_lst.append(hog.compute(gray))
-    return gradient_lst
+            gradientList.append(hog.compute(gray))
+    return gradientList
     
  
- 
-def get_svm_detector(svm):
-    sv = svm.getSupportVectors()
-    rho, _, _ = svm.getDecisionFunction(0)
-    sv = np.transpose(sv)
-    return np.append(sv, [[-rho]], 0)
- 
-
-if __name__ == "__main__":
-    posPath = sys.argv[1]
-    negPath = sys.argv[2]
-    modelPath = sys.argv[3]
-
-    neg_list = []
-    pos_list = []
-
-    gradient_lst = []
-    labels = []
-    hard_neg_list = []
-
-    # for now, pos-50 and neg-110 have the best performance
-    pos_list = load_images(posPath, num = 100)
-    neg_list = load_images(negPath, num = 200)
-    # sample_neg(full_neg_lst, neg_list, [128, 64])
-
-    print("The number of positive examples:", len(pos_list))
-    print("The number of negative examples:", len(neg_list))
-
-    computeHOGs(pos_list, gradient_lst)
-    computeHOGs(neg_list, gradient_lst)
-    # print("Size of gradient list", len(gradient_lst))
-    labels = [1 for _ in range(len(pos_list))] + [-1 for _ in range(len(neg_list))]
-    
-    # train svm on positive examples
+def createSvm():
     svm = cv2.ml.SVM_create()
     svm.setCoef0(0)
     svm.setCoef0(0.0)
@@ -83,33 +47,67 @@ if __name__ == "__main__":
     svm.setP(0.1)  # for EPSILON_SVR, epsilon in loss function?
     svm.setC(0.01)  # From paper, soft classifier
     svm.setType(cv2.ml.SVM_EPS_SVR)  # C_SVC # EPSILON_SVR # may be also NU_SVR # do regression task
-    svm.train(np.array(gradient_lst), cv2.ml.ROW_SAMPLE, np.array(labels))
+    return svm
+ 
+def getSvmDetector(svm):
+    vectors = svm.getSupportVectors()
+    vectors = np.transpose(vectors)
+    rho = svm.getDecisionFunction(0)[0]
+    return np.append(vectors, [[-rho]], 0)
+
+def findHardExamples(svm, negList):
+    hardExamples = []
+    hog = cv2.HOGDescriptor()
+    detector = getSvmDetector(svm)
+    hog.setSVMDetector(detector)
+    for neg in negList:
+        rects, weights = hog.detectMultiScale(neg, winStride=(4, 4),padding=(8, 8), scale=1.05)
+        # crop out each part which misleads the model and resize them to be a new negative example
+        for (x,y,H,W) in rects:
+            hardExample = neg[y:y+W, x:x+H]
+            hardExamples.append(cv2.resize(hardExample,(64, 128)))
+    return hardExamples       
+
+if __name__ == "__main__":
+    posPath = sys.argv[1]
+    negPath = sys.argv[2]
+    modelPath = sys.argv[3]
+
+    gradientList = []
+    labels = []
+
+    # for now, pos-50 and neg-110 have the best performance
+    positiveList = loadImages(posPath, num = 100)
+    negativeList = loadImages(negPath, num = 200)
+    # sample_neg(full_neg_lst, negativeList, [128, 64])
+
+    print("The number of positive examples:", len(positiveList))
+    print("The number of negative examples:", len(negativeList))
+
+    gradientList = computeHOGs(positiveList) + computeHOGs(negativeList)
+    labels = [1 for _ in positiveList] + [-1 for _ in negativeList]
+    
+    # train svm on positive and negative examples
+    svm = createSvm()
+    svm.train(np.array(gradientList), cv2.ml.ROW_SAMPLE, np.array(labels))
     print("Finished first round of training")
     
     # train svm on negative examples which cause poor performance
-    hog = cv2.HOGDescriptor()
-    hard_neg_list.clear()
-    hog.setSVMDetector(get_svm_detector(svm))
-    for i in range(len(neg_list)):
-        rects, wei = hog.detectMultiScale(neg_list[i], winStride=(4, 4),padding=(8, 8), scale=1.05)
-        for (x,y,w,h) in rects:
-            print(x, y, w, h)
-            hardExample = neg_list[i][y:y+h, x:x+w]
-            hard_neg_list.append(cv2.resize(hardExample,(64, 128)))
-    print("Size of hard_neg_list:", len(hard_neg_list))
-    computeHOGs(hard_neg_list, gradient_lst)
+    hardNegList = findHardExamples(svm, negativeList)
+    print("Size of hard_negativeList:", len(hardNegList))
+    gradientList += computeHOGs(hardNegList)
 
-    for i in range(len(hard_neg_list)):
+    for i in range(len(hardNegList)):
         labels.append(-1)
 
-    # print("Number of labels", len(labels))
-    svm.train(np.array(gradient_lst), cv2.ml.ROW_SAMPLE, np.array(labels))
+    svm.train(np.array(gradientList), cv2.ml.ROW_SAMPLE, np.array(labels))
     print("Finished second round of training")
     
-    
-    # save svm+hog model
-    hog.setSVMDetector(get_svm_detector(svm))
-    hog.save(modelPath)
+    # comebine hog with our detected  save svm+hog model
+    detector = getSvmDetector(svm)
+    hog = cv2.HOGDescriptor()
+    hog.setSVMDetector(detector)
+    hog.save(str(len(positiveList)) + "-" + str(len(negativeList)) + "-" + modelPath)
     print("Saved!")
  
 
