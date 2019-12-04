@@ -1,37 +1,23 @@
-import cv2
-import numpy as np
-import random
 import os
 import sys
- 
-def loadImages(dirPath, num = 30):
-    imges = []
-    # dirname is path to the direcotry where images are stored
-    files = os.listdir(dirPath)
-    for f in files:
-        img_name = dirPath + "/" + f
-        imges.append(cv2.imread(img_name))
-        num -= 1
-        # if amount limit has been reached, we stop and ignore how many images are left
-        if num <= 0:
-            break
-    return imges
- 
+import cv2
+import numpy as np
 
-def computeHOGs(img_lst, wsize=(128, 64)):
+def computeHOGs(images, size=(128, 64)):
     gradientList = []
     hog = cv2.HOGDescriptor()
-    print(len(img_lst))
-    for img in img_lst:
-        # img = np.power(img/float(np.max(img)), 1/1.5)
-        if img.shape[1] > wsize[1] and img.shape[0] > wsize[0]:
+    for img in images:
+        # compute HOG descriptor for one image
+        if img.shape[1] > size[1] and img.shape[0] > size[0]:
+            # if the image is too big, we crop the central part of the image
             H, W = img.shape[:2]
-            roi = img[(H - wsize[0]) // 2: (H - wsize[0]) // 2 + wsize[0], (W - wsize[1]) // 2: (W - wsize[1]) // 2 + wsize[1]]
+            roi = img[(H - size[0]) // 2: (H - size[0]) // 2 + size[0], (W - size[1]) // 2: (W - size[1]) // 2 + size[1]]
             gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
             gray = np.power(img/float(np.max(gray)), 1.5)
             gradientList.append(hog.compute(gray))
         else:
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            # gamma correction
             gray = (np.power(gray/float(np.max(gray)), 1/1.5) * 255).astype(np.uint8)
             gradientList.append(hog.compute(gray))
     return gradientList
@@ -47,9 +33,11 @@ def createSvm():
     svm.setGamma(0)
     svm.setKernel(cv2.ml.SVM_LINEAR)
     svm.setNu(0.5)
-    svm.setP(0.1)  # for EPSILON_SVR, epsilon in loss function?
-    svm.setC(0.01)  # From paper, soft classifier
-    svm.setType(cv2.ml.SVM_EPS_SVR)  # C_SVC # EPSILON_SVR # may be also NU_SVR # do regression task
+    svm.setP(0.1)
+    # set soft classifier
+    svm.setC(0.01)
+    # do regression
+    svm.setType(cv2.ml.SVM_EPS_SVR)
     return svm
  
 def getSvmDetector(svm):
@@ -72,6 +60,19 @@ def findHardExamples(svm, negList):
             hardExamples.append(cv2.resize(hardExample,(64, 128)))
     return hardExamples       
 
+def loadImages(dirPath, num = 30):
+    imges = []
+    # dirname is path to the direcotry where images are stored
+    files = os.listdir(dirPath)
+    for f in files:
+        fileName = dirPath + "/" + f
+        imges.append(cv2.imread(fileName))
+        num -= 1
+        # if amount limit has been reached, we stop and ignore how many images are left
+        if num <= 0:
+            break
+    return imges
+
 if __name__ == "__main__":
     posPath = sys.argv[1]
     negPath = sys.argv[2]
@@ -81,8 +82,8 @@ if __name__ == "__main__":
     labels = []
 
     # for now, pos-50 and neg-110 have the best performance
-    positiveList = loadImages(posPath, num = 200)
-    negativeList = loadImages(negPath, num = 400)
+    positiveList = loadImages(posPath, num = 100)
+    negativeList = loadImages(negPath, num = 200)
     # sample_neg(full_neg_lst, negativeList, [128, 64])
 
     print("The number of positive examples:", len(positiveList))
@@ -119,4 +120,3 @@ if __name__ == "__main__":
     hog.save(str(len(positiveList)) + "-" + str(len(negativeList)) + "-" + modelPath)
     print("Saved!")
  
-

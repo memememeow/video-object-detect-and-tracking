@@ -1,7 +1,8 @@
-import cv2
-import numpy as np
 import os
 import sys
+import cv2
+import numpy as np
+
 
 def intersection(rect1, rect2):
     intersectLeftX = max(rect1[0], rect2[0])
@@ -32,7 +33,6 @@ def nmsFilter(rectangles, threshold):
 
     correct = []
     while leftToRightRectangleIndices != []:
-        print("We still have ", leftToRightRectangleIndices)
         last = len(leftToRightRectangleIndices) - 1
         lastRectangleIdx = leftToRightRectangleIndices[last]
         correct.append(lastRectangleIdx)
@@ -64,11 +64,11 @@ def mergeRects(rectangles):
         merged = newMerged
     return merged
 
+# detect objects in an image by using the given model
 def predict(img, modelPath, merge=False):
     hog = cv2.HOGDescriptor()
     hog.load(modelPath)
     rects, wei = hog.detectMultiScale(img, winStride = (4, 4), padding = (8, 8), scale=1.05)
-    # print(rects)
     locations = []
     for (x, y, H, W) in rects:
         locations.append([x, y, x+H, y+W])
@@ -89,6 +89,8 @@ def test(dirPath, modelPath, num, merge = False):
         for (x1, y1, x2, y2) in rects:
             cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
         i += 1
+        # display the output one by one
+        # press space bar to continue
         cv2.imshow("test_" + str(i), img)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
@@ -101,6 +103,5 @@ if __name__ == "__main__":
     dirPath = parameters[1]
     modelPath = parameters[2]
     number = int(parameters[3])
-    # print(number)
     merge = int(parameters[4]) == 1
     test(dirPath, modelPath, number, merge)
